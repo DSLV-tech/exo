@@ -443,7 +443,29 @@
             .s-header { padding:5rem 1.5rem 1.5rem; }
             .s-body   { padding:1.5rem; }
             header    { padding:1.5rem; }
+            .ambient  { left: 1.5rem; right: 1.5rem; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
             .hero-title { font-size:clamp(1.5rem, 8vw, 3rem); }
+        }
+        @media (max-width:600px) {
+            header { padding: 1rem; flex-direction: column; gap: 0.5rem; align-items: flex-start; }
+            .sys-clock { display: none; }
+            .ambient { bottom: 1rem; left: 1rem; right: 1rem; font-size: 0.5rem; }
+            .s-header { padding: 4.5rem 1rem 1rem; flex-wrap: wrap; gap: 1rem; }
+            .s-body { padding: 1rem; gap: 1.2rem; }
+            #dslv-badge { bottom: 1rem; right: 1rem; transform: scale(0.8); transform-origin: bottom right; }
+            
+            /* Force preview cards below the nodes to prevent overflow */
+            .nav-preview { width: 220px !important; padding: 1.2rem !important; }
+            #n-missions .nav-preview,
+            #n-fleet    .nav-preview,
+            #n-tech     .nav-preview {
+                left: 50% !important; right: auto !important; top: calc(100% + 15px) !important; bottom: auto !important;
+                transform: translateX(-50%) !important;
+                border: none !important;
+                border-top: 2px solid var(--c) !important;
+            }
+            #n-fleet .nav-preview { border-top-color: var(--p) !important; }
+            #n-tech .nav-preview { border-top-color: var(--r) !important; }
         }
     </style>
 </head>
@@ -1064,9 +1086,9 @@
 
     // Node definitions: angle, orbital radius, angular speed
     const nodeData = [
-        { el: $('n-missions'), angle: Math.PI * 1.65, radius: 210, speed:  0.0038 },
-        { el: $('n-fleet'),    angle: Math.PI * 0.75, radius: 255, speed: -0.0028 },
-        { el: $('n-tech'),     angle: Math.PI * 1.18, radius: 175, speed:  0.0050 },
+        { el: $('n-missions'), angle: Math.PI * 1.65, baseRadius: 210, speed:  0.0038 },
+        { el: $('n-fleet'),    angle: Math.PI * 0.75, baseRadius: 255, speed: -0.0028 },
+        { el: $('n-tech'),     angle: Math.PI * 1.18, baseRadius: 175, speed:  0.0050 },
     ];
     nodeData.forEach(n => { n.locked = false; n.targetAngle = n.angle; });
 
@@ -1078,6 +1100,9 @@
 
         if (appState === 'hero') {
             nodeData.forEach((n, i) => {
+                // Dynamically adjust radius so nodes don't overflow on small screens
+                n.radius = Math.min(n.baseRadius, Math.min(W(), H()) / 2 - 45);
+
                 // Orbit path ring
                 orbitCtx.beginPath();
                 orbitCtx.arc(cx, cy, n.radius, 0, Math.PI * 2);
