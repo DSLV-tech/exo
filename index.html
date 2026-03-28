@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exo-Interstellar | Central Directive 2312</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;600&family=Syncopate:wght@400;700&family=JetBrains+Mono:wght@100;300&family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ============================================================
+           ROOT & RESET
+        ============================================================ */
+        :root {
+            --bg:     #030305;
+            --c:      #00F0FF;
+            --p:      #B478FF;
+            --r:      #FF0055;
+            --t:      #f0f0f0;
+            --m:      #8080a0;
+            --gold:   #C8A84B;
+            --ivory:  #EDE5CC;
+            --panel:  rgba(8, 12, 22, 0.75);
+            --border: rgba(0, 240, 255, 0.18);
+            --ease:   cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; cursor:none; }
+        html, body {
+            width:100%; height:100%; overflow:hidden;
+            background:var(--bg); color:var(--t);
+            font-family:'Outfit', sans-serif;
+            user-select:none;
+        }
+
+        /* ============================================================
+           BACKGROUND CANVASES (fixed, pointer-events: none)
+        ============================================================ */
+        .bg-canvas {
+            position:fixed; top:0; left:0;
+            width:100%; height:100%;
+            pointer-events:none; z-index:1;
+        }
+        #c-stars-deep  { z-index:1; opacity:0.9; }
+        #c-stars-mid   { z-index:2; opacity:0.6; }
+        #c-stars-near  { z-index:3; opacity:0.35; }
+        #c-orbits      { z-index:4; opacity:0.7; pointer-events:none; position:fixed; top:0; left:0; width:100%; height:100%; }
+        #c-warp        { z-index:200; pointer-events:none; position:fixed; top:0; left:0; width:100%; height:100%; opacity:0; transition:opacity 0.15s; }
+        #c-warp.active { opacity:1; }
+
+        /* ============================================================
+           CYBER GRID
+        ============================================================ */
+        .cyber-grid {
+            position:fixed; inset:0; z-index:2; pointer-events:none;
+            background-image:
+                linear-gradient(rgba(0,240,255,0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,240,255,0.025) 1px, transparent 1px);
+            background-size:60px 60px;
+            mask-image:radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 100%);
+            -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 50%, black 40%, transparent 100%);
+        }
+
+        /* ============================================================
+           CUSTOM CURSOR — targeting reticle
+        ============================================================ */
+        #cur-outer {
+            position:fixed; top:0; left:0;
+            transform:translate(-50%,-50%);
+            pointer-events:none; z-index:9999;
+            transition:transform 0.1s var(--ease);
+        }
+        #cur-outer svg { display:block; }
+        #cur-dot {
+            position:fixed; top:0; left:0; width:4px; height:4px;
+            border-radius:50%; background:var(--c);
+            box-shadow:0 0 8px var(--c), 0 0 16px rgba(0,240,255,0.4);
+            transform:translate(-50%,-50%);
+            pointer-events:none; z-index:9998;
+        }
+        body.hovering #cur-outer svg { transform:scale(1.2); transform-origin:50% 50%; transition:transform 0.2s; }
+
+        /* ============================================================
+           HEADER
+        ============================================================ */
+        header {
+            position:fixed; top:0; left:0; right:0; z-index:60;
+            display:flex; justify-content:space-between; align-items:center;
+            padding:1.8rem 4rem; pointer-events:none;
+        }
+        .logo {
+            font-family:'Syncopate', sans-serif; font-size:1rem;
+            font-weight:700; letter-spacing:5px; color:#fff;
+            text-shadow:0 0 20px rgba(0,240,255,0.7);
+        }
+        .logo em { color:var(--c); font-style:normal; }
+        .sys-clock {
+            font-family:'DM Mono', 'JetBrains Mono', monospace; font-size:0.68rem;
+            color:var(--c); letter-spacing:2px; opacity:0.65;
+        }
+
+        /* ============================================================
+           MAIN STAGE  — full-viewport, no scroll
+        ============================================================ */
+        #stage {
+            position:fixed; inset:0; z-index:10;
+        }
+
+        /* ============================================================
+           HERO SCENE
+        ============================================================ */
+        #scene-hero {
+            position:absolute; inset:0;
+            display:flex; justify-content:center; align-items:center;
+            transition:opacity 0.4s ease, transform 0.5s var(--ease);
+        }
+        #scene-hero.exit {
+            opacity:0; transform:scale(0.94) perspective(800px) rotateX(4deg);
+            pointer-events:none;
+        }
+
+        /* Title block — floats above orbital system */
+        .hero-headline {
+            position:absolute; top:14%; left:50%;
+            transform:translateX(-50%);
+            text-align:center; pointer-events:none; z-index:20;
+        }
+        .hero-title {
+            font-family:'Syne', 'Syncopate', sans-serif;
+            font-size:clamp(2rem, 5.5vw, 5rem);
+            font-weight:700; letter-spacing:3px;
+            background:linear-gradient(175deg, #ffffff 0%, rgba(255,255,255,0.12) 100%);
+            background-clip:text; -webkit-background-clip:text;
+            -webkit-text-fill-color:transparent;
+            white-space:nowrap;
+        }
+        .hero-sub {
+            font-family:'DM Mono', 'JetBrains Mono', monospace; font-size:0.7rem;
+            color:var(--c); letter-spacing:8px; margin-top:0.6rem; opacity:0.55;
+        }
+
+        /* Orbital container — fills hero, nodes positioned by JS */
+        #orbital-wrap {
+            position:absolute; inset:0;
+            pointer-events:none;
+        }
+
+        /* Command Core */
+        .cmd-core {
+            position:absolute; left:50%; top:50%;
+            transform:translate(-50%,-50%);
+            width:120px; height:120px;
+            display:flex; justify-content:center; align-items:center;
+            pointer-events:none; z-index:15;
+        }
+        .cmd-ring {
+            position:absolute; border-radius:50%; border:1px solid;
+            transform-origin:center center;
+        }
+        .cmd-ring:nth-child(1) { width:120px; height:120px; border-color:rgba(0,240,255,0.22); animation:spinRing 18s linear infinite; }
+        .cmd-ring:nth-child(2) { width:86px;  height:86px;  border-color:rgba(180,120,255,0.3); animation:spinRing 11s linear infinite reverse; border-style:dashed; }
+        .cmd-ring:nth-child(3) { width:56px;  height:56px;  border-color:rgba(0,240,255,0.35); animation:spinRing 7s linear infinite; }
+        @keyframes spinRing { to { transform:rotate(360deg); } }
+
+        .cmd-core-center {
+            width:28px; height:28px; border-radius:50%; z-index:2;
+            background:radial-gradient(circle, rgba(0,240,255,0.95) 0%, rgba(0,240,255,0.15) 60%, transparent 100%);
+            box-shadow:0 0 30px rgba(0,240,255,0.7), 0 0 60px rgba(0,240,255,0.2);
+            animation:coreBreath 2.4s ease-in-out infinite;
+        }
+        @keyframes coreBreath {
+            0%,100% { transform:scale(1);   box-shadow:0 0 30px rgba(0,240,255,0.7), 0 0 60px rgba(0,240,255,0.2); }
+            50%      { transform:scale(1.2); box-shadow:0 0 50px rgba(0,240,255,1),   0 0 100px rgba(0,240,255,0.4); }
+        }
+        .cmd-label {
+            position:absolute; bottom:-28px; left:50%; transform:translateX(-50%);
+            font-family:'DM Mono', 'JetBrains Mono'; font-size:0.55rem; letter-spacing:4px;
+            color:var(--c); white-space:nowrap; opacity:0.4;
+        }
+
+        /* ============================================================
+           ORBITAL NAV NODES
+        ============================================================ */
+        .nav-node {
+            position:absolute; transform:translate(-50%,-50%);
+            pointer-events:auto; z-index:20;
+        }
+        .nav-btn {
+            width:58px; height:58px; border-radius:50%;
+            background:rgba(4,8,18,0.85); border:1px solid rgba(0,240,255,0.25);
+            display:flex; justify-content:center; align-items:center;
+            backdrop-filter:blur(12px); color:var(--c);
+            transition:all 0.35s var(--ease);
+            box-shadow:0 0 16px rgba(0,240,255,0.04);
+            position:relative;
+        }
+        .nav-btn::before {
+            content:''; position:absolute; inset:-5px; border-radius:50%;
+            border:1px dashed rgba(0,240,255,0.18);
+            animation:dashSpin 10s linear infinite;
+        }
+        @keyframes dashSpin { to { transform:rotate(360deg); } }
+        .nav-btn svg { width:22px; height:22px; }
+
+        .nav-node:hover .nav-btn,
+        .nav-node.locked .nav-btn {
+            background:rgba(0,240,255,0.1);
+            border-color:var(--c);
+            box-shadow:0 0 32px rgba(0,240,255,0.45), inset 0 0 12px rgba(0,240,255,0.06);
+            transform:scale(1.12);
+        }
+
+        /* Node label beneath icon */
+        .nav-label {
+            position:absolute; bottom:-30px; left:50%;
+            transform:translateX(-50%) translateY(6px);
+            white-space:nowrap; pointer-events:none;
+            opacity:0; transition:all 0.3s var(--ease);
+        }
+        .nav-node:hover .nav-label,
+        .nav-node.locked .nav-label {
+            opacity:1; transform:translateX(-50%) translateY(0);
+        }
+        .nav-label span {
+            font-family:'Syncopate'; font-size:0.5rem; letter-spacing:3px; color:var(--c);
+        }
+
+        /* Preview card */
+        .nav-preview {
+            position:absolute; width:270px;
+            background:rgba(2,4,10,0.92); border:1px solid var(--border);
+            padding:1.4rem 1.6rem; backdrop-filter:blur(24px);
+            opacity:0; visibility:hidden; pointer-events:none;
+            transition:all 0.4s var(--ease);
+            clip-path:polygon(0 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%);
+        }
+        .nav-node.locked .nav-preview {
+            opacity:1; visibility:visible; pointer-events:auto;
+        }
+
+        /* Directional positioning by node ID
+           Gap = 0px (avoids mouseleave firing in the physical gap).
+           Visual spacing comes from the preview's inner padding / border. */
+        #n-missions .nav-preview { left:calc(100% - 2px); top:50%; transform:translateY(-50%); border-left:2px solid var(--c); padding-left:1.8rem; }
+        #n-fleet    .nav-preview { right:calc(100% - 2px); top:50%; transform:translateY(-50%); border-right:2px solid var(--p); padding-right:1.8rem; }
+        #n-tech     .nav-preview { bottom:calc(100% - 2px); left:50%; transform:translateX(-50%); border-top:2px solid var(--r); padding-top:1.8rem; }
+
+        /* Extended hit-area bridge: invisible pseudo-element on each node
+           stretches toward the preview so mouseleave never fires mid-gap */
+        .nav-node::before {
+            content: '';
+            position: absolute;
+            inset: -12px;
+            border-radius: 50%;
+        }
+
+        .np-tag  { font-family:'DM Mono', 'JetBrains Mono'; font-size:0.58rem; color:var(--c); letter-spacing:2px; display:block; margin-bottom:0.4rem; }
+        .nav-preview h3 { font-family:'Syncopate'; font-size:0.85rem; color:#fff; margin-bottom:0.5rem; }
+        .nav-preview p  { font-size:0.8rem; color:var(--m); line-height:1.65; margin-bottom:1.1rem; }
+        .np-btn {
+            display:inline-flex; align-items:center; gap:0.4rem;
+            padding:0.45rem 1.1rem; font-family:'Syncopate'; font-size:0.6rem;
+            color:var(--c); border:1px solid rgba(0,240,255,0.5); background:transparent;
+            text-decoration:none; transition:all 0.25s ease;
+            clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
+        }
+        .np-btn:hover { background:var(--c); color:#000; box-shadow:0 0 12px var(--c); }
+
+        /* ============================================================
+           CONTENT SCENES (full viewport panels)
+        ============================================================ */
+        .c-scene {
+            position:absolute; inset:0; display:flex; flex-direction:column;
+            opacity:0; pointer-events:none;
+            transition:opacity 0.55s ease;
+        }
+        .c-scene.active {
+            opacity:1; pointer-events:auto;
+        }
+
+        /* Scene header bar */
+        .s-header {
+            display:flex; align-items:center; gap:1.5rem;
+            padding:5.5rem 4rem 1.8rem;
+            border-bottom:1px solid rgba(0,240,255,0.08);
+            flex-shrink:0;
+        }
+        .s-num {
+            font-family:'Syncopate'; font-size:3.5rem; font-weight:700;
+            color:transparent; -webkit-text-stroke:1px rgba(0,240,255,0.25);
+            line-height:1;
+        }
+        .s-title-group { flex:1; }
+        .s-title { font-family:'Syncopate'; font-size:1.8rem; letter-spacing:3px; }
+        .s-sub { font-family:'DM Mono', 'JetBrains Mono'; font-size:0.62rem; color:var(--c); letter-spacing:3px; margin-top:0.25rem; opacity:0.6; }
+        .s-divider { flex:1; height:1px; background:linear-gradient(90deg, var(--c), transparent); opacity:0.15; }
+
+        /* Eject button */
+        .eject-btn {
+            display:flex; align-items:center; gap:0.5rem;
+            padding:0.5rem 1.2rem; border:1px solid rgba(0,240,255,0.2);
+            background:transparent; color:var(--m);
+            font-family:'DM Mono', 'JetBrains Mono'; font-size:0.65rem; letter-spacing:2px;
+            transition:all 0.25s ease; flex-shrink:0;
+        }
+        .eject-btn:hover { border-color:var(--c); color:var(--c); box-shadow:0 0 12px rgba(0,240,255,0.15); }
+
+        /* Scene body grid */
+        .s-body {
+            flex:1; padding:2rem 4rem; display:grid; gap:1.8rem;
+            overflow-y:auto; align-content:start;
+        }
+        #scene-missions .s-body { grid-template-columns:1.3fr 0.9fr; align-items:start; }
+        #scene-fleet    .s-body { grid-template-columns:0.85fr 1.15fr; align-items:start; }
+        #scene-tech     .s-body { grid-template-columns:1fr 1fr; align-items:start; }
+
+        .s-body::-webkit-scrollbar { width:3px; }
+        .s-body::-webkit-scrollbar-thumb { background:rgba(0,240,255,0.15); }
+
+        /* HUD panel */
+        .hud {
+            background:var(--panel); border:1px solid var(--border);
+            padding:1.8rem 2rem; backdrop-filter:blur(18px);
+            position:relative; overflow:hidden;
+        }
+        .hud::before { content:''; position:absolute; top:0; left:0; width:18px; height:18px; border-top:2px solid var(--c); border-left:2px solid var(--c); }
+        .hud::after  { content:''; position:absolute; bottom:0; right:0; width:18px; height:18px; border-bottom:2px solid var(--p); border-right:2px solid var(--p); }
+        .scan {
+            position:absolute; top:-60px; left:0; width:100%; height:35px;
+            background:linear-gradient(to bottom, transparent, rgba(0,240,255,0.05), transparent);
+            animation:scanMove 3.5s linear infinite; pointer-events:none;
+        }
+        @keyframes scanMove { to { top:115%; } }
+
+        /* Data rows */
+        .dr { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.6rem; }
+        .dl { font-family:'DM Mono', 'JetBrains Mono'; font-size:0.72rem; color:var(--m); }
+        .dv { font-family:'DM Mono', 'JetBrains Mono'; font-size:0.82rem; color:var(--c); font-weight:bold; }
+        .dv.warn { color:var(--r); }
+        .pt { height:3px; background:rgba(255,255,255,0.04); margin-top:3px; margin-bottom:1rem; overflow:hidden; }
+        .pf { height:100%; width:0; transition:width 1.6s cubic-bezier(0.22,1,0.36,1); }
+        .pf.cyan   { background:var(--c); box-shadow:0 0 6px var(--c); }
+        .pf.purple { background:var(--p); box-shadow:0 0 6px var(--p); }
+        .pf.red    { background:var(--r); box-shadow:0 0 6px var(--r); }
+
+        /* Terminal log */
+        .tlog {
+            font-family:'DM Mono', 'JetBrains Mono'; font-size:0.74rem; color:var(--m);
+            line-height:1.9; margin-top:1.4rem;
+            border-top:1px solid rgba(255,255,255,0.04); padding-top:0.9rem;
+        }
+        .tl { display:block; opacity:0; animation:fadeUp 0.4s forwards; }
+        .tl.c { color:var(--c); }
+        .tl.r { color:var(--r); }
+        .tl.g { color:var(--gold); }
+        @keyframes fadeUp { to { opacity:1; } }
+
+        /* Hologram display */
+        .hologram {
+            width:100%; aspect-ratio:1; max-height:320px;
+            display:flex; justify-content:center; align-items:center;
+            position:relative;
+            background:radial-gradient(circle, rgba(0,240,255,0.05) 0%, transparent 65%);
+        }
+
+        /* EQ bars */
+        .eq { display:flex; gap:5px; align-items:flex-end; height:55px; margin-top:1.4rem; }
+        .eq-b { border-radius:1px 1px 0 0; }
+        @keyframes eqAnim { 0%,100% { transform:scaleY(1); } 50% { transform:scaleY(0.25); } }
+
+        /* Ship schematic */
+        #ship-svg path, #ship-svg polyline, #ship-svg ellipse {
+            stroke-dasharray:500; stroke-dashoffset:500;
+        }
+        .draw { animation:drawStroke 2s ease forwards; }
+        @keyframes drawStroke { to { stroke-dashoffset:0; } }
+
+        /* Tech canvas */
+        #c-neural { display:block; }
+
+        /* ============================================================
+           AMBIENT FOOTER
+        ============================================================ */
+        .ambient {
+            position:fixed; bottom:1.4rem; left:4rem; right:4rem;
+            display:flex; justify-content:space-between; align-items:center;
+            font-family:'DM Mono', 'JetBrains Mono'; font-size:0.6rem; color:var(--m);
+            letter-spacing:2px; z-index:50; pointer-events:none; opacity:0.45;
+        }
+        .ambient span { color:var(--c); }
+
+        /* ============================================================
+           SCAN-IN ENTRY ANIMATION for scene content
+        ============================================================ */
+        .c-scene.active .hud {
+            animation:scanIn 0.6s var(--ease) both;
+        }
+        .c-scene.active .hud:nth-child(2) { animation-delay:0.1s; }
+        @keyframes scanIn {
+            from { opacity:0; transform:translateY(18px); clip-path:inset(0 0 100% 0); }
+            to   { opacity:1; transform:translateY(0);    clip-path:inset(0 0 0% 0); }
+        }
+
+        /* ============================================================
+           DSLV SIGNATURE BADGE — logo from social kit
+        ============================================================ */
+        #dslv-badge {
+            position:fixed; bottom:2rem; right:2.6rem;
+            z-index:60; pointer-events:auto;
+            /* backdrop so it never clashes with scene content */
+            background:rgba(3,3,5,0.55);
+            padding:8px 10px 6px 10px;
+            border:1px solid rgba(0,240,255,0.08);
+            backdrop-filter:blur(6px);
+        }
+        #dslv-badge a {
+            text-decoration:none;
+            display:flex; flex-direction:row; align-items:center; gap:8px;
+            opacity:0.5; transition:opacity 0.3s var(--ease);
+        }
+        #dslv-badge a:hover { opacity:1; }
+        #dslv-badge .dslv-mark {
+            display:block; flex-shrink:0;
+            filter:drop-shadow(0 0 5px rgba(0,240,255,0.2));
+            transition:filter 0.3s;
+        }
+        #dslv-badge a:hover .dslv-mark { filter:drop-shadow(0 0 9px rgba(0,240,255,0.5)); }
+        #dslv-badge .dslv-right { display:flex; flex-direction:column; align-items:flex-start; gap:4px; }
+        #dslv-badge .dslv-wm   { display:block; }
+        #dslv-badge .dslv-url  {
+            font-family:'DM Mono', 'JetBrains Mono', monospace; font-size:0.42rem;
+            letter-spacing:2px; color:rgba(0,240,255,0.38); text-transform:lowercase;
+            transition:color 0.25s;
+        }
+        #dslv-badge a:hover .dslv-url { color:rgba(0,240,255,0.75); }
+
+        /* ============================================================
+           RESPONSIVE
+        ============================================================ */
+        @media (max-width:900px) {
+            #scene-missions .s-body,
+            #scene-fleet    .s-body,
+            #scene-tech     .s-body { grid-template-columns:1fr; }
+            .s-header { padding:5rem 1.5rem 1.5rem; }
+            .s-body   { padding:1.5rem; }
+            header    { padding:1.5rem; }
+            .hero-title { font-size:clamp(1.5rem, 8vw, 3rem); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── BACKGROUND LAYERS ─────────────────────────────────── -->
+    <canvas class="bg-canvas" id="c-stars-deep"></canvas>
+    <canvas class="bg-canvas" id="c-stars-mid"></canvas>
+    <canvas class="bg-canvas" id="c-stars-near"></canvas>
+    <canvas id="c-orbits"></canvas>
+    <div class="cyber-grid"></div>
+
+    <!-- ── WARP OVERLAY ──────────────────────────────────────── -->
+    <canvas id="c-warp"></canvas>
+
+    <!-- ── CURSOR ────────────────────────────────────────────── -->
+    <div id="cur-outer">
+        <!-- Military targeting reticle:
+             4 arc segments (80° each, 10° gaps at cardinal points)
+             + primary axis ticks + diagonal minor ticks + inner dashed ring + center diamond -->
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+            <!-- 4 arc segments — clockwise, 80° each, gaps at 0/90/180/270° -->
+            <!-- Coords: r=20, centre (26,26).  5°→85° | 95°→175° | 185°→265° | 275°→355° -->
+            <path d="M27.7,6.1  A20,20 0 0,1 45.9,24.3" stroke="rgba(0,240,255,0.42)" stroke-width="1"/>
+            <path d="M45.9,27.7 A20,20 0 0,1 27.7,45.9" stroke="rgba(0,240,255,0.42)" stroke-width="1"/>
+            <path d="M24.3,45.9 A20,20 0 0,1 6.1,27.7"  stroke="rgba(0,240,255,0.42)" stroke-width="1"/>
+            <path d="M6.1,24.3  A20,20 0 0,1 24.3,6.1"  stroke="rgba(0,240,255,0.42)" stroke-width="1"/>
+
+            <!-- Primary axis ticks — extend from r≈13 through ring to r≈23 -->
+            <line x1="26" y1="3"  x2="26" y2="13" stroke="rgba(0,240,255,0.72)" stroke-width="1.3"/>
+            <line x1="26" y1="39" x2="26" y2="49" stroke="rgba(0,240,255,0.72)" stroke-width="1.3"/>
+            <line x1="3"  y1="26" x2="13" y2="26" stroke="rgba(0,240,255,0.72)" stroke-width="1.3"/>
+            <line x1="39" y1="26" x2="49" y2="26" stroke="rgba(0,240,255,0.72)" stroke-width="1.3"/>
+
+            <!-- Diagonal minor ticks at 45° (r≈17→r≈20 range) -->
+            <line x1="37.3" y1="14.7" x2="39.4" y2="12.6" stroke="rgba(0,240,255,0.28)" stroke-width="0.9"/>
+            <line x1="14.7" y1="14.7" x2="12.6" y2="12.6" stroke="rgba(0,240,255,0.28)" stroke-width="0.9"/>
+            <line x1="37.3" y1="37.3" x2="39.4" y2="39.4" stroke="rgba(0,240,255,0.28)" stroke-width="0.9"/>
+            <line x1="14.7" y1="37.3" x2="12.6" y2="39.4" stroke="rgba(0,240,255,0.28)" stroke-width="0.9"/>
+
+            <!-- Inner dashed ring (r=7) -->
+            <circle cx="26" cy="26" r="7" stroke="rgba(0,240,255,0.18)" stroke-width="0.7" stroke-dasharray="2.2 3.4"/>
+
+            <!-- Center diamond -->
+            <path d="M26,23.2 L28.8,26 L26,28.8 L23.2,26 Z" stroke="rgba(0,240,255,0.58)" stroke-width="0.9" fill="none"/>
+        </svg>
+    </div>
+    <div id="cur-dot"></div>
+
+    <!-- ── DSLV SIGNATURE BADGE — SVG logo dal social kit ──── -->
+    <div id="dslv-badge">
+        <a href="https://dslv.tech" target="_blank" rel="noopener">
+            <!-- Mark: D+S in bianco, L+V in cyan (armonizzato al tema) -->
+            <svg class="dslv-mark" viewBox="0 0 273.65 273.65" width="26" height="26" fill="none">
+                <polyline points="24.74 159.23 47.14 181.63 226.35 181.63 271.15 136.83 2.5 136.83 47.35 92.02 226.35 92.02 248.75 114.43"
+                          stroke="rgba(240,245,255,0.85)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="159.23 248.91 181.63 226.51 181.63 47.3 136.83 2.5 136.83 271.15 92.02 226.31 92.02 47.3 114.43 24.9"
+                          stroke="#00F0FF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div class="dslv-right">
+                <!-- Wordmark: D+S in bianco, L+V in cyan -->
+                <svg class="dslv-wm" viewBox="0 0 225.19 28.27" width="80" height="10" fill="none">
+                    <path d="M0.43,0.43 V27.84 H38.4 L57.4,14.14 L38.39,0.43 Z"
+                          stroke="rgba(240,245,255,0.8)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M69.07,20.99 L73.82,27.84 H111.82 L121.32,14.14 H64.36 L73.86,0.43 H111.82 L116.57,7.28"
+                          stroke="rgba(240,245,255,0.8)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M129.43,0.43 V27.84 H176.9"
+                          stroke="#00F0FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M167.79,0.43 V14.14 L196.27,27.84 L224.76,14.14 V0.43"
+                          stroke="#00F0FF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="dslv-url">dslv.tech</span>
+            </div>
+        </a>
+    </div>
+
+    <!-- ── HEADER ────────────────────────────────────────────── -->
+    <header>
+        <div class="logo">EXO<em>_</em>SYS</div>
+        <div class="sys-clock" id="sys-clock">2312.04.18 // 00:00:00 UTC</div>
+    </header>
+
+    <!-- ── STAGE ─────────────────────────────────────────────── -->
+    <div id="stage">
+
+        <!-- HERO SCENE ───────────────────────────────────── -->
+        <div id="scene-hero">
+
+            <div class="hero-headline">
+                <div class="hero-title">BEYOND THE HORIZON</div>
+                <div class="hero-sub">CENTRAL DIRECTIVE 2312</div>
+            </div>
+
+            <!-- Orbital System -->
+            <div id="orbital-wrap">
+
+                <!-- Command Core -->
+                <div class="cmd-core">
+                    <div class="cmd-ring"></div>
+                    <div class="cmd-ring"></div>
+                    <div class="cmd-ring"></div>
+                    <div class="cmd-core-center"></div>
+                    <div class="cmd-label">COMMAND CORE</div>
+                </div>
+
+                <!-- MISSIONS node -->
+                <div class="nav-node" id="n-missions">
+                    <div class="nav-btn">
+                        <!-- Planet with tilted orbital ring + surface latitude lines + satellite -->
+                        <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.15">
+                            <!-- Orbital ellipse (tilted –28°) -->
+                            <ellipse cx="13" cy="13" rx="11.5" ry="4.2" transform="rotate(-28 13 13)" stroke-width="0.9" opacity="0.72"/>
+                            <!-- Planet body -->
+                            <circle cx="13" cy="13" r="5.5"/>
+                            <!-- Surface latitude lines -->
+                            <path d="M9.2 11.4 Q13 10.2 16.8 11.4" stroke-width="0.65" opacity="0.42"/>
+                            <path d="M8.8 14.2 Q13 13.1 17.2 14.2" stroke-width="0.65" opacity="0.42"/>
+                            <!-- Satellite dot on orbit -->
+                            <circle cx="22.2" cy="9.1" r="1.4" fill="currentColor" stroke="none" opacity="0.78"/>
+                        </svg>
+                    </div>
+                    <div class="nav-label"><span>MISSIONS</span></div>
+                    <div class="nav-preview">
+                        <span class="np-tag">SECTOR ALPHA // ACTIVE</span>
+                        <h3>INTERSTELLAR MISSIONS</h3>
+                        <p>Live telemetry from Kepler Expansion Vanguard. Shielding critical.</p>
+                        <a class="np-btn" data-target="missions">INITIALIZE LINK →</a>
+                    </div>
+                </div>
+
+                <!-- FLEET node -->
+                <div class="nav-node" id="n-fleet">
+                    <div class="nav-btn">
+                        <!-- Top-down dreadnought: fuselage + delta wings + nacelles -->
+                        <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.1">
+                            <!-- Main fuselage (Bézier hull) -->
+                            <path d="M13 2.5 C15.2 5 16 9.5 16 16.5 L13 19.5 L10 16.5 C10 9.5 10.8 5 13 2.5 Z"/>
+                            <!-- Port swept delta wing -->
+                            <path d="M10.2 11.5 L4.5 20.5 L9.2 21.8 L10.5 17.5" stroke-width="0.88" opacity="0.78"/>
+                            <!-- Starboard swept delta wing -->
+                            <path d="M15.8 11.5 L21.5 20.5 L16.8 21.8 L15.5 17.5" stroke-width="0.88" opacity="0.78"/>
+                            <!-- Port engine nacelle -->
+                            <rect x="8.5" y="18.5" width="3" height="3.8" rx="0.9" stroke-width="0.75" opacity="0.72"/>
+                            <!-- Starboard engine nacelle -->
+                            <rect x="14.5" y="18.5" width="3" height="3.8" rx="0.9" stroke-width="0.75" opacity="0.72"/>
+                            <!-- Cockpit viewport slit -->
+                            <line x1="11.6" y1="7.2" x2="14.4" y2="7.2" stroke-width="0.6" opacity="0.42"/>
+                            <!-- Engine exhaust glow dots -->
+                            <circle cx="10" cy="23" r="0.85" fill="currentColor" stroke="none" opacity="0.62"/>
+                            <circle cx="16" cy="23" r="0.85" fill="currentColor" stroke="none" opacity="0.62"/>
+                            <!-- Nose sensor spike -->
+                            <line x1="13" y1="2.5" x2="13" y2="0.5" stroke-width="0.65" opacity="0.38"/>
+                        </svg>
+                    </div>
+                    <div class="nav-label"><span>FLEET</span></div>
+                    <div class="nav-preview">
+                        <span class="np-tag">ORBITAL DRYDOCKS</span>
+                        <h3>NAVAL FLEET</h3>
+                        <p>Class-V Dreadnought schematics. Antimatter core signatures online.</p>
+                        <a class="np-btn" data-target="fleet">VIEW HANGARS →</a>
+                    </div>
+                </div>
+
+                <!-- TECH node -->
+                <div class="nav-node" id="n-tech">
+                    <div class="nav-btn">
+                        <!-- Atom inside hexagon: 3 electron orbits + nucleus -->
+                        <svg viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="1.1">
+                            <!-- Hexagon border (pointy-top, r=10.5) -->
+                            <polygon points="13,2.5 22.1,7.75 22.1,18.25 13,23.5 3.9,18.25 3.9,7.75" stroke-width="1.0" opacity="0.82"/>
+                            <!-- Electron orbit 1 (horizontal) -->
+                            <ellipse cx="13" cy="13" rx="7.2" ry="2.9" stroke-width="0.72" opacity="0.68"/>
+                            <!-- Electron orbit 2 (rotated 60°) -->
+                            <ellipse cx="13" cy="13" rx="7.2" ry="2.9" transform="rotate(60 13 13)" stroke-width="0.72" opacity="0.68"/>
+                            <!-- Electron orbit 3 (rotated 120°) -->
+                            <ellipse cx="13" cy="13" rx="7.2" ry="2.9" transform="rotate(120 13 13)" stroke-width="0.72" opacity="0.68"/>
+                            <!-- Nucleus (filled) -->
+                            <circle cx="13" cy="13" r="1.7" fill="currentColor" stroke="none" opacity="0.9"/>
+                            <!-- Electron positions on each orbit -->
+                            <circle cx="20.2" cy="13"  r="1.05" fill="currentColor" stroke="none" opacity="0.68"/>
+                            <circle cx="9.4"  cy="7.5"  r="1.05" fill="currentColor" stroke="none" opacity="0.68"/>
+                            <circle cx="16.6" cy="18.5" r="1.05" fill="currentColor" stroke="none" opacity="0.68"/>
+                        </svg>
+                    </div>
+                    <div class="nav-label"><span>TECHNOLOGY</span></div>
+                    <div class="nav-preview">
+                        <span class="np-tag">QUANTUM LABS // RESEARCH</span>
+                        <h3>CORE TECHNOLOGY</h3>
+                        <p>Dark energy manifold specs. Gravity distortion parameters. Paradox risk: HIGH.</p>
+                        <a class="np-btn" data-target="tech">ACCESS DB →</a>
+                    </div>
+                </div>
+
+            </div><!-- /orbital-wrap -->
+        </div><!-- /scene-hero -->
+
+        <!-- ── MISSIONS SCENE ─────────────────────────────── -->
+        <div id="scene-missions" class="c-scene">
+            <div class="s-header">
+                <button class="eject-btn" id="back-missions">⟵ EJECT</button>
+                <span class="s-num">01</span>
+                <div class="s-title-group">
+                    <div class="s-title">ACTIVE MISSIONS</div>
+                    <div class="s-sub">KEPLER EXPANSION VANGUARD // LIVE TELEMETRY</div>
+                </div>
+                <div class="s-divider"></div>
+            </div>
+            <div class="s-body">
+                <!-- Status panel -->
+                <div class="hud">
+                    <div class="scan"></div>
+                    <div class="dr"><span class="dl">TERRAFORMING STATUS (KEPLER-186f)</span><span class="dv">72%</span></div>
+                    <div class="pt"><div class="pf cyan" data-w="72%"></div></div>
+                    <div class="dr"><span class="dl">WARP GATE ENTRAINMENT</span><span class="dv">94%</span></div>
+                    <div class="pt"><div class="pf purple" data-w="94%"></div></div>
+                    <div class="dr"><span class="dl">HOSTILE ENV. SHIELDING</span><span class="dv warn">12% ⚠ CRITICAL</span></div>
+                    <div class="pt"><div class="pf red" data-w="12%"></div></div>
+                    <div class="dr" style="margin-top:0.4rem"><span class="dl">COLONIST LIFE SUPPORT</span><span class="dv">88%</span></div>
+                    <div class="pt"><div class="pf cyan" data-w="88%"></div></div>
+
+                    <div class="tlog">
+                        <span class="tl"   style="animation-delay:0.4s">> UPLINK ESTABLISHED...</span>
+                        <span class="tl c" style="animation-delay:0.9s">> RECEIVING TELEMETRY FROM VANGUARD OUTPOST</span>
+                        <span class="tl"   style="animation-delay:1.4s">> ATMOSPHERE CONDENSERS: NOMINAL CAPACITY</span>
+                        <span class="tl r" style="animation-delay:1.9s">> WARNING: SHIELD INTEGRITY BELOW THRESHOLD</span>
+                        <span class="tl"   style="animation-delay:2.4s">> REQUESTING EMERGENCY RESUPPLY VECTOR...</span>
+                        <span class="tl c" style="animation-delay:2.9s">> STANDBY FOR ORBITAL RESPONSE_</span>
+                    </div>
+                </div>
+
+                <!-- Astrometrics hologram -->
+                <div class="hud">
+                    <div class="scan"></div>
+                    <div style="font-family:'DM Mono', 'JetBrains Mono';font-size:0.6rem;color:var(--c);margin-bottom:0.8rem;letter-spacing:2px;">
+                        ASTROMETRICS MAP // SECTOR-V
+                    </div>
+                    <div class="hologram">
+                        <svg viewBox="0 0 200 200" style="width:90%;max-width:260px;fill:none;stroke:var(--c);stroke-width:0.5;">
+                            <!-- 8-direction grid lines -->
+                            <line x1="100" y1="10"  x2="100" y2="190" stroke="rgba(0,240,255,0.07)"/>
+                            <line x1="10"  y1="100" x2="190" y2="100" stroke="rgba(0,240,255,0.07)"/>
+                            <line x1="36.3" y1="36.3" x2="163.7" y2="163.7" stroke="rgba(0,240,255,0.045)"/>
+                            <line x1="163.7" y1="36.3" x2="36.3" y2="163.7" stroke="rgba(0,240,255,0.045)"/>
+                            <!-- Range rings -->
+                            <circle cx="100" cy="100" r="90"   stroke-dasharray="2 6" opacity="0.22"/>
+                            <circle cx="100" cy="100" r="67.5" opacity="0.38"/>
+                            <circle cx="100" cy="100" r="45"   stroke="var(--p)" opacity="0.48"/>
+                            <circle cx="100" cy="100" r="22.5" stroke-dasharray="1 5" opacity="0.32"/>
+                            <!-- Range labels (just inside each ring at north) -->
+                            <text x="103" y="14"   font-family="DM Mono" font-size="4.5" fill="rgba(0,240,255,0.32)">90 AU</text>
+                            <text x="103" y="36.5" font-family="DM Mono" font-size="4.5" fill="rgba(0,240,255,0.32)">67 AU</text>
+                            <text x="103" y="59"   font-family="DM Mono" font-size="4.5" fill="rgba(0,240,255,0.32)">45 AU</text>
+                            <text x="103" y="81.5" font-family="DM Mono" font-size="4.5" fill="rgba(0,240,255,0.32)">22 AU</text>
+                            <!-- Cardinal direction labels -->
+                            <text x="96"  y="8"   font-family="DM Mono" font-size="5.5" fill="rgba(0,240,255,0.5)">N</text>
+                            <text x="96"  y="198" font-family="DM Mono" font-size="5.5" fill="rgba(0,240,255,0.5)">S</text>
+                            <text x="192" y="103" font-family="DM Mono" font-size="5.5" fill="rgba(0,240,255,0.5)">E</text>
+                            <text x="2"   y="103" font-family="DM Mono" font-size="5.5" fill="rgba(0,240,255,0.5)">W</text>
+                            <!-- ── Animated sweep group ── -->
+                            <g>
+                                <animateTransform attributeName="transform" type="rotate" from="0 100 100" to="360 100 100" dur="6s" repeatCount="indefinite"/>
+                                <!-- Sweep wedge: 30° sector behind the leading arm (trail) -->
+                                <!-- Arc from (55,22.1) CCW to (100,10) at r=90, sweep-flag=1 = clockwise -->
+                                <path d="M100,100 L55,22.1 A90,90 0 0,1 100,10 Z"   fill="rgba(0,240,255,0.065)" stroke="none"/>
+                                <path d="M100,100 L66.3,41.6 A67.5,67.5 0 0,1 100,32.5 Z" fill="rgba(0,240,255,0.045)" stroke="none"/>
+                                <path d="M100,100 L77.5,61.1 A45,45 0 0,1 100,55 Z"  fill="rgba(0,240,255,0.03)" stroke="none"/>
+                                <!-- Leading sweep arm -->
+                                <line x1="100" y1="100" x2="100" y2="10" stroke="rgba(0,240,255,0.75)" stroke-width="1.2"/>
+                                <!-- Glow tip -->
+                                <circle cx="100" cy="12" r="2.2" fill="rgba(0,240,255,0.45)" stroke="none"/>
+                            </g>
+                            <!-- Contact 1: HOSTILE (pulsing red) NE quadrant -->
+                            <circle cx="152" cy="58" r="3.5" fill="var(--r)" stroke="none">
+                                <animate attributeName="opacity" values="0.9;0.15;0.9" dur="1.4s" repeatCount="indefinite"/>
+                                <animate attributeName="r"       values="3.5;5.5;3.5"  dur="1.4s" repeatCount="indefinite"/>
+                            </circle>
+                            <line x1="155.5" y1="55"  x2="165"  y2="46"  stroke="rgba(255,0,85,0.38)" stroke-width="0.5"/>
+                            <text x="166" y="46"  font-family="DM Mono" font-size="4.5" fill="rgba(255,0,85,0.72)">CTK-01</text>
+                            <text x="166" y="52"  font-family="DM Mono" font-size="3.8" fill="rgba(255,0,85,0.42)">HOSTILE</text>
+                            <!-- Contact 2: VANGUARD (cyan) SW quadrant -->
+                            <circle cx="68" cy="130" r="2.5" fill="var(--c)" stroke="none">
+                                <animate attributeName="opacity" values="0.2;1;0.2" dur="2.1s" repeatCount="indefinite"/>
+                            </circle>
+                            <line x1="65.5" y1="131.5" x2="38" y2="142" stroke="rgba(0,240,255,0.3)" stroke-width="0.5"/>
+                            <text x="4"  y="141" font-family="DM Mono" font-size="4.5" fill="rgba(0,240,255,0.62)">VNG-07</text>
+                            <text x="4"  y="147" font-family="DM Mono" font-size="3.8" fill="rgba(0,240,255,0.38)">ALLIED</text>
+                            <!-- Contact 3: RELAY (purple) SE quadrant -->
+                            <circle cx="128" cy="142" r="2" fill="var(--p)" stroke="none">
+                                <animate attributeName="opacity" values="1;0.2;1" dur="3.3s" repeatCount="indefinite"/>
+                            </circle>
+                            <line x1="130" y1="142" x2="152" y2="153" stroke="rgba(180,120,255,0.3)" stroke-width="0.5"/>
+                            <text x="153" y="153" font-family="DM Mono" font-size="4.5" fill="rgba(180,120,255,0.62)">REL-02</text>
+                            <text x="153" y="159" font-family="DM Mono" font-size="3.8" fill="rgba(180,120,255,0.38)">RELAY</text>
+                            <!-- Center crosshair -->
+                            <line x1="96"  y1="100" x2="104" y2="100" stroke="rgba(0,240,255,0.55)" stroke-width="0.8"/>
+                            <line x1="100" y1="96"  x2="100" y2="104" stroke="rgba(0,240,255,0.55)" stroke-width="0.8"/>
+                            <circle cx="100" cy="100" r="2.5" stroke="rgba(0,240,255,0.3)" fill="none" stroke-width="0.6"/>
+                        </svg>
+                    </div>
+                    <div style="font-family:'DM Mono', 'JetBrains Mono';font-size:0.62rem;color:var(--m);margin-top:0.8rem;line-height:1.8;">
+                        <span style="color:var(--r);">◉</span> HOSTILE CONTACT &nbsp;&nbsp;
+                        <span style="color:var(--c);">◉</span> VANGUARD &nbsp;&nbsp;
+                        <span style="color:var(--p);">◉</span> RELAY
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── FLEET SCENE ────────────────────────────────── -->
+        <div id="scene-fleet" class="c-scene">
+            <div class="s-header">
+                <button class="eject-btn" id="back-fleet">⟵ EJECT</button>
+                <span class="s-num">02</span>
+                <div class="s-title-group">
+                    <div class="s-title">NAVAL FLEET</div>
+                    <div class="s-sub">ORBITAL DRYDOCKS // SHIPYARD COMMAND</div>
+                </div>
+                <div class="s-divider"></div>
+            </div>
+            <div class="s-body">
+                <!-- Ship schematic -->
+                <div class="hud" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                    <div class="scan"></div>
+                    <div style="font-family:'DM Mono', 'JetBrains Mono';font-size:0.6rem;color:var(--p);margin-bottom:1rem;letter-spacing:2px;align-self:flex-start;">
+                        PROMETHEUS CV-4 // SCHEMATIC VIEW
+                    </div>
+                    <svg id="ship-svg" viewBox="0 0 260 300" style="width:85%;max-width:260px;fill:none;stroke-width:0.9;">
+                        <!-- ── HULL (Bézier curve — smoother profile) ── -->
+                        <path d="M130 22 C146 55 168 95 178 138 C185 168 181 188 167 198 L130 208 L93 198 C79 188 75 168 82 138 C92 95 114 55 130 22 Z"
+                              stroke="var(--c)" style="stroke-dasharray:820;stroke-dashoffset:820;animation:drawStroke 2.4s ease forwards 0.3s;"/>
+                        <!-- ── PORT SWEPT WING ── -->
+                        <path d="M92 180 C68 184 40 196 16 226 L30 244 C58 228 88 216 94 204"
+                              stroke="var(--p)" style="stroke-dasharray:420;stroke-dashoffset:420;animation:drawStroke 1.7s ease forwards 1.0s;" opacity="0.85"/>
+                        <!-- ── STARBOARD SWEPT WING ── -->
+                        <path d="M168 180 C192 184 220 196 244 226 L230 244 C202 228 172 216 166 204"
+                              stroke="var(--p)" style="stroke-dasharray:420;stroke-dashoffset:420;animation:drawStroke 1.7s ease forwards 1.0s;" opacity="0.85"/>
+                        <!-- ── NOSE SENSOR ARRAY ── -->
+                        <path d="M125 22 L122 14 L130 9 L138 14 L135 22" stroke="var(--c)" stroke-width="0.72" opacity="0.65"/>
+                        <circle cx="130" cy="10" r="2.2" stroke="var(--c)" fill="rgba(0,240,255,0.18)" stroke-width="0.6"/>
+                        <!-- ── BRIDGE DOME ── -->
+                        <path d="M116 60 C116 49 144 49 144 60 L144 74 L116 74 Z"
+                              stroke="var(--c)" style="stroke-dasharray:110;stroke-dashoffset:110;animation:drawStroke 1.0s ease forwards 1.5s;" opacity="0.72"/>
+                        <!-- Viewport slits -->
+                        <line x1="120" y1="64" x2="140" y2="64" stroke="rgba(0,240,255,0.42)" stroke-width="0.6"/>
+                        <line x1="121" y1="69" x2="139" y2="69" stroke="rgba(0,240,255,0.26)" stroke-width="0.55"/>
+                        <!-- ── HULL SUBDIVISION LINES ── -->
+                        <line x1="105" y1="118" x2="155" y2="118" stroke="rgba(0,240,255,0.18)" stroke-width="0.5"/>
+                        <line x1="96"  y1="148" x2="164" y2="148" stroke="rgba(0,240,255,0.18)" stroke-width="0.5"/>
+                        <line x1="87"  y1="175" x2="173" y2="175" stroke="rgba(0,240,255,0.18)" stroke-width="0.5"/>
+                        <!-- Centerline guide -->
+                        <line x1="130" y1="22" x2="130" y2="208" stroke="rgba(0,240,255,0.09)" stroke-width="0.5" stroke-dasharray="4 5"/>
+                        <!-- Diagonal hull plate seams -->
+                        <line x1="130" y1="118" x2="105" y2="148" stroke="rgba(0,240,255,0.09)" stroke-width="0.4"/>
+                        <line x1="130" y1="118" x2="155" y2="148" stroke="rgba(0,240,255,0.09)" stroke-width="0.4"/>
+                        <line x1="130" y1="148" x2="96"  y2="175" stroke="rgba(0,240,255,0.07)" stroke-width="0.4"/>
+                        <line x1="130" y1="148" x2="164" y2="175" stroke="rgba(0,240,255,0.07)" stroke-width="0.4"/>
+                        <!-- ── WEAPONS HARDPOINTS ── -->
+                        <circle cx="110" cy="135" r="3.2" stroke="rgba(255,0,85,0.48)" stroke-width="0.7"/>
+                        <circle cx="150" cy="135" r="3.2" stroke="rgba(255,0,85,0.48)" stroke-width="0.7"/>
+                        <circle cx="115" cy="162" r="2.4" stroke="rgba(255,0,85,0.35)" stroke-width="0.6"/>
+                        <circle cx="145" cy="162" r="2.4" stroke="rgba(255,0,85,0.35)" stroke-width="0.6"/>
+                        <!-- ── PORT ENGINE NACELLE ── -->
+                        <path d="M86 195 C76 200 66 204 60 212 L64 226 C70 218 80 214 90 210 Z"
+                              stroke="var(--r)" stroke-width="0.75" opacity="0.72"/>
+                        <!-- PORT EXHAUST -->
+                        <ellipse cx="62" cy="224" rx="5.5" ry="2.4" stroke="var(--r)" stroke-width="0.7" style="stroke-dasharray:none;stroke-dashoffset:0;" opacity="0.85">
+                            <animate attributeName="ry" values="2.4;5.2;2.4" dur="0.78s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="0.85;1;0.85" dur="0.78s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <!-- ── STARBOARD ENGINE NACELLE ── -->
+                        <path d="M174 195 C184 200 194 204 200 212 L196 226 C190 218 180 214 170 210 Z"
+                              stroke="var(--r)" stroke-width="0.75" opacity="0.72"/>
+                        <!-- STARBOARD EXHAUST -->
+                        <ellipse cx="198" cy="224" rx="5.5" ry="2.4" stroke="var(--r)" stroke-width="0.7" style="stroke-dasharray:none;stroke-dashoffset:0;" opacity="0.85">
+                            <animate attributeName="ry" values="5.2;2.4;5.2" dur="0.78s" repeatCount="indefinite"/>
+                            <animate attributeName="opacity" values="1;0.85;1" dur="0.78s" repeatCount="indefinite"/>
+                        </ellipse>
+                        <!-- ── ANNOTATION CALLOUTS ── -->
+                        <!-- Bridge -->
+                        <line x1="144" y1="64" x2="186" y2="52" stroke="rgba(0,240,255,0.25)" stroke-width="0.5"/>
+                        <line x1="186" y1="52" x2="226" y2="52" stroke="rgba(0,240,255,0.25)" stroke-width="0.5"/>
+                        <text x="228" y="55" font-family="DM Mono" font-size="5.5" fill="rgba(0,240,255,0.58)">BRIDGE</text>
+                        <!-- Sensor nose -->
+                        <line x1="138" y1="14" x2="164" y2="8"  stroke="rgba(0,240,255,0.2)" stroke-width="0.5"/>
+                        <text x="165" y="11" font-family="DM Mono" font-size="4.8" fill="rgba(0,240,255,0.45)">SENSOR ARRAY</text>
+                        <!-- Port wing -->
+                        <line x1="16"  y1="230" x2="6"   y2="250" stroke="rgba(180,120,255,0.25)" stroke-width="0.5"/>
+                        <text x="2"   y="262" font-family="DM Mono" font-size="5" fill="rgba(180,120,255,0.52)">PORT</text>
+                        <!-- Weapons L -->
+                        <line x1="107" y1="138" x2="96"  y2="160" stroke="rgba(255,0,85,0.25)" stroke-width="0.5"/>
+                        <text x="74"  y="170" font-family="DM Mono" font-size="4.8" fill="rgba(255,0,85,0.48)">WPN-L</text>
+                        <!-- Weapons R -->
+                        <line x1="153" y1="138" x2="163" y2="160" stroke="rgba(255,0,85,0.25)" stroke-width="0.5"/>
+                        <text x="160" y="170" font-family="DM Mono" font-size="4.8" fill="rgba(255,0,85,0.48)">WPN-R</text>
+                        <!-- Ion drive -->
+                        <line x1="198" y1="226" x2="220" y2="248" stroke="rgba(255,0,85,0.22)" stroke-width="0.5"/>
+                        <text x="210" y="260" font-family="DM Mono" font-size="4.8" fill="rgba(255,0,85,0.45)">ION DRIVE</text>
+                    </svg>
+                </div>
+
+                <!-- Ship data panel -->
+                <div class="hud">
+                    <div class="scan"></div>
+                    <div style="font-family:'Syncopate';font-size:0.75rem;color:#fff;margin-bottom:1.4rem;border-bottom:1px solid var(--border);padding-bottom:0.7rem;">
+                        VESSEL: PROMETHEUS CV-4
+                    </div>
+                    <div class="dr"><span class="dl">HULL INTEGRITY</span><span class="dv">100%</span></div>
+                    <div class="pt"><div class="pf cyan" data-w="100%"></div></div>
+                    <div class="dr"><span class="dl">CRYOSLEEP PODS</span><span class="dv">4,521 / 5,000</span></div>
+                    <div class="pt"><div class="pf purple" data-w="90%"></div></div>
+                    <div class="dr"><span class="dl">JUMP DRIVE CHARGE</span><span class="dv">67%</span></div>
+                    <div class="pt"><div class="pf cyan" data-w="67%"></div></div>
+                    <div class="dr"><span class="dl">WEAPONS SYSTEMS</span><span class="dv" style="color:var(--p);">STANDBY</span></div>
+                    <div class="pt"><div class="pf purple" data-w="100%"></div></div>
+                    <div class="tlog">
+                        <span class="tl"   style="animation-delay:0.5s">> ARMOR PLATING: DEPLOYED</span>
+                        <span class="tl c" style="animation-delay:1.1s">> ANTIMATTER CORE: ONLINE</span>
+                        <span class="tl"   style="animation-delay:1.7s">> OUTPUT: 4.2 TERA-JOULES</span>
+                        <span class="tl c" style="animation-delay:2.3s">> JUMP COORDINATES: LOCKED_</span>
+                    </div>
+                    <!-- Reactor EQ -->
+                    <div class="eq">
+                        <div class="eq-b" style="width:9px;height:38px;background:var(--c);animation:eqAnim 1.0s ease-in-out infinite alternate;"></div>
+                        <div class="eq-b" style="width:9px;height:52px;background:var(--p);animation:eqAnim 1.3s ease-in-out infinite alternate-reverse;"></div>
+                        <div class="eq-b" style="width:9px;height:24px;background:var(--r);animation:eqAnim 0.8s ease-in-out infinite alternate;"></div>
+                        <div class="eq-b" style="width:9px;height:46px;background:var(--c);animation:eqAnim 1.5s ease-in-out infinite alternate-reverse;"></div>
+                        <div class="eq-b" style="width:9px;height:55px;background:var(--p);animation:eqAnim 1.1s ease-in-out infinite alternate;"></div>
+                        <div class="eq-b" style="width:9px;height:30px;background:var(--c);animation:eqAnim 0.9s ease-in-out infinite alternate-reverse;"></div>
+                        <div class="eq-b" style="width:9px;height:44px;background:var(--r);animation:eqAnim 1.4s ease-in-out infinite alternate;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── TECHNOLOGY SCENE ───────────────────────────── -->
+        <div id="scene-tech" class="c-scene">
+            <div class="s-header">
+                <button class="eject-btn" id="back-tech">⟵ EJECT</button>
+                <span class="s-num">03</span>
+                <div class="s-title-group">
+                    <div class="s-title">QUANTUM TECH</div>
+                    <div class="s-sub">DARK ENERGY MANIFOLD // RESEARCH DATABASE</div>
+                </div>
+                <div class="s-divider"></div>
+            </div>
+            <div class="s-body">
+                <!-- Specs panel -->
+                <div class="hud">
+                    <div class="scan"></div>
+                    <div style="font-family:'Syncopate';font-size:0.8rem;color:#fff;margin-bottom:1rem;">
+                        DARK MATTER MANIFOLD MK.III
+                    </div>
+                    <p style="font-family:'DM Mono', 'JetBrains Mono';font-size:0.75rem;color:var(--m);line-height:1.9;margin-bottom:1.4rem;">
+                        By folding space-time along string contours, the Mark III drive collapses local distance.
+                        Prolonged exposure to gravity distortions may result in paradox echoes and temporal drift.
+                    </p>
+                    <div class="dr"><span class="dl">FIELD COHERENCE</span><span class="dv">88%</span></div>
+                    <div class="pt"><div class="pf purple" data-w="88%"></div></div>
+                    <div class="dr"><span class="dl">TEMPORAL STABILITY</span><span class="dv">61%</span></div>
+                    <div class="pt"><div class="pf cyan" data-w="61%"></div></div>
+                    <div class="dr"><span class="dl">QUANTUM ENTANGLEMENT</span><span class="dv">95%</span></div>
+                    <div class="pt"><div class="pf purple" data-w="95%"></div></div>
+                    <div class="dr"><span class="dl">PARADOX RISK FACTOR</span><span class="dv warn">HIGH ⚠</span></div>
+                    <div class="pt"><div class="pf red" data-w="42%"></div></div>
+                    <div class="tlog">
+                        <span class="tl r" style="animation-delay:0.6s">> WARNING: PARADOX ECHO DETECTED IN SECTOR-V</span>
+                        <span class="tl"   style="animation-delay:1.2s">> INITIATING TEMPORAL CORRECTION SEQUENCE...</span>
+                        <span class="tl c" style="animation-delay:1.8s">> STRING CONTOUR STABILITY: ACCEPTABLE_</span>
+                    </div>
+                </div>
+
+                <!-- Neural resonance grid canvas -->
+                <div class="hud">
+                    <div class="scan"></div>
+                    <div style="font-family:'DM Mono', 'JetBrains Mono';font-size:0.6rem;color:var(--c);margin-bottom:0.8rem;letter-spacing:2px;">
+                        NEURAL RESONANCE GRID // LIVE
+                    </div>
+                    <canvas id="c-neural" width="400" height="280" style="width:100%;height:260px;border:1px solid rgba(0,240,255,0.06);"></canvas>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /stage -->
+
+    <!-- ── AMBIENT FOOTER ────────────────────────────────────── -->
+    <div class="ambient">
+        <span>RA <span id="a-ra">14h 29m 43.0s</span> // DEC <span id="a-dec">−62° 40′ 46″</span></span>
+        <span id="a-state" style="color:var(--m);">STATE: HERO // ORBITAL LOCK: NOMINAL</span>
+        <span>SYS_INTEGRITY: <span>100%</span></span>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════
+         SCRIPTS
+    ════════════════════════════════════════════════════════ -->
+    <script>
+    /* ──────────────────────────────────────────────────────────
+       UTILITIES
+    ────────────────────────────────────────────────────────── */
+    const W = () => window.innerWidth;
+    const H = () => window.innerHeight;
+    const $ = id => document.getElementById(id);
+    const EASE_OUT = t => 1 - Math.pow(1 - t, 3);
+
+    /* ──────────────────────────────────────────────────────────
+       STATE MACHINE
+    ────────────────────────────────────────────────────────── */
+    let appState   = 'hero';  // hero | missions | fleet | tech
+    let isWarping  = false;
+
+    /* ──────────────────────────────────────────────────────────
+       CLOCK
+    ────────────────────────────────────────────────────────── */
+    const clockEl = $('sys-clock');
+    setInterval(() => {
+        const t = new Date().toISOString().split('T')[1].split('.')[0];
+        clockEl.textContent = `2312.04.18 // ${t} UTC`;
+    }, 1000);
+
+    /* ──────────────────────────────────────────────────────────
+       CURSOR — smooth reticle follow
+    ────────────────────────────────────────────────────────── */
+    const curOuter = $('cur-outer');
+    const curDot   = $('cur-dot');
+    let mx = W()/2, my = H()/2;
+    let cx = W()/2, cy = H()/2;
+
+    document.addEventListener('mousemove', e => {
+        mx = e.clientX; my = e.clientY;
+        curDot.style.left = mx + 'px';
+        curDot.style.top  = my + 'px';
+    });
+
+    function tickCursor() {
+        cx += (mx - cx) * 0.11;
+        cy += (my - cy) * 0.11;
+        curOuter.style.left = cx + 'px';
+        curOuter.style.top  = cy + 'px';
+        requestAnimationFrame(tickCursor);
+    }
+    tickCursor();
+
+    // Enlarge on hover
+    document.querySelectorAll('.nav-node, .eject-btn, .np-btn, .nav-btn').forEach(el => {
+        el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+        el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+    });
+
+    /* ──────────────────────────────────────────────────────────
+       3-LAYER PARALLAX STARFIELD
+    ────────────────────────────────────────────────────────── */
+    const starDefs = [
+        { id:'c-stars-deep', count:220, radRange:[0.4,1.2], speed:0.008,  color:[150,200,255] },
+        { id:'c-stars-mid',  count:100, radRange:[0.8,2.0], speed:0.02,   color:[0,240,255]   },
+        { id:'c-stars-near', count: 45, radRange:[1.2,2.8], speed:0.038,  color:[180,120,255] },
+    ];
+
+    const layers = starDefs.map(def => {
+        const canvas = $(def.id);
+        canvas.width  = W();
+        canvas.height = H();
+        const ctx   = canvas.getContext('2d');
+        const stars = Array.from({ length: def.count }, () => ({
+            x:    Math.random() * W(),
+            y:    Math.random() * H(),
+            r:    def.radRange[0] + Math.random() * (def.radRange[1] - def.radRange[0]),
+            phase: Math.random() * Math.PI * 2
+        }));
+        return { canvas, ctx, stars, ...def };
+    });
+
+    let pxRaw = 0, pyRaw = 0, pxSmooth = 0, pySmooth = 0;
+    document.addEventListener('mousemove', e => {
+        pxRaw = (e.clientX / W() - 0.5);
+        pyRaw = (e.clientY / H() - 0.5);
+    });
+
+    let t_star = 0;
+    function drawStars() {
+        t_star += 0.016;
+        pxSmooth += (pxRaw - pxSmooth) * 0.04;
+        pySmooth += (pyRaw - pySmooth) * 0.04;
+
+        layers.forEach(layer => {
+            const { canvas, ctx, stars, speed, color } = layer;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const ox = pxSmooth * speed * W() * 12;
+            const oy = pySmooth * speed * H() * 12;
+
+            stars.forEach(s => {
+                const x = ((s.x + ox) % W() + W()) % W();
+                const y = ((s.y + oy) % H() + H()) % H();
+                const twinkle = 0.45 + Math.sin(t_star * 1.3 + s.phase) * 0.25;
+                ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${twinkle})`;
+                ctx.beginPath();
+                ctx.arc(x, y, s.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        });
+
+        requestAnimationFrame(drawStars);
+    }
+    drawStars();
+
+    window.addEventListener('resize', () => {
+        layers.forEach(l => { l.canvas.width = W(); l.canvas.height = H(); });
+        warpCv.width  = W(); warpCv.height  = H();
+        orbitCv.width = W(); orbitCv.height = H();
+    });
+
+    /* ──────────────────────────────────────────────────────────
+       ORBITAL NAVIGATION
+       Nodes orbit command core; mouse gravity attracts them.
+    ────────────────────────────────────────────────────────── */
+    const orbitCv  = $('c-orbits');
+    const orbitCtx = orbitCv.getContext('2d');
+    orbitCv.width  = W();
+    orbitCv.height = H();
+
+    // Node definitions: angle, orbital radius, angular speed
+    const nodeData = [
+        { el: $('n-missions'), angle: Math.PI * 1.65, radius: 210, speed:  0.0038 },
+        { el: $('n-fleet'),    angle: Math.PI * 0.75, radius: 255, speed: -0.0028 },
+        { el: $('n-tech'),     angle: Math.PI * 1.18, radius: 175, speed:  0.0050 },
+    ];
+    nodeData.forEach(n => { n.locked = false; n.targetAngle = n.angle; });
+
+    function updateOrbitalSystem(dt) {
+        const cx = W() / 2, cy = H() / 2;
+
+        // Draw orbit paths
+        orbitCtx.clearRect(0, 0, orbitCv.width, orbitCv.height);
+
+        if (appState === 'hero') {
+            nodeData.forEach((n, i) => {
+                // Orbit path ring
+                orbitCtx.beginPath();
+                orbitCtx.arc(cx, cy, n.radius, 0, Math.PI * 2);
+                orbitCtx.strokeStyle = `rgba(0,240,255,0.06)`;
+                orbitCtx.lineWidth   = 1;
+                orbitCtx.setLineDash([3, 8]);
+                orbitCtx.stroke();
+                orbitCtx.setLineDash([]);
+
+                if (!n.locked) {
+                    // Mouse gravity: slight pull toward cursor
+                    const nodeX = cx + Math.cos(n.angle) * n.radius;
+                    const nodeY = cy + Math.sin(n.angle) * n.radius;
+                    const dx = mx - nodeX, dy = my - nodeY;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const gravityCap = 180;
+
+                    let speed = n.speed;
+                    if (dist < gravityCap) {
+                        const pull = (1 - dist / gravityCap) * 0.0025;
+                        const targetAngle = Math.atan2(my - cy, mx - cx);
+                        let diff = targetAngle - n.angle;
+                        // Normalize diff
+                        while (diff > Math.PI)  diff -= Math.PI * 2;
+                        while (diff < -Math.PI) diff += Math.PI * 2;
+                        speed += pull * Math.sign(diff);
+                    }
+
+                    n.angle += speed * dt;
+                }
+
+                // Position the HTML node element
+                const nx = cx + Math.cos(n.angle) * n.radius;
+                const ny = cy + Math.sin(n.angle) * n.radius;
+                n.el.style.left = nx + 'px';
+                n.el.style.top  = ny + 'px';
+                n.el.style.position = 'absolute';
+            });
+
+            // Connector lines: core → each locked node
+            nodeData.forEach(n => {
+                if (n.locked) {
+                    const nx = cx + Math.cos(n.angle) * n.radius;
+                    const ny = cy + Math.sin(n.angle) * n.radius;
+                    orbitCtx.beginPath();
+                    orbitCtx.moveTo(cx, cy);
+                    orbitCtx.lineTo(nx, ny);
+                    const grad = orbitCtx.createLinearGradient(cx, cy, nx, ny);
+                    grad.addColorStop(0, 'rgba(0,240,255,0.5)');
+                    grad.addColorStop(1, 'rgba(0,240,255,0)');
+                    orbitCtx.strokeStyle = grad;
+                    orbitCtx.lineWidth = 1;
+                    orbitCtx.stroke();
+                }
+            });
+        }
+
+        requestAnimationFrame(() => updateOrbitalSystem(dt));
+    }
+
+    let lastOrbT = performance.now();
+    function orbitalLoop() {
+        const now  = performance.now();
+        const dt   = Math.min((now - lastOrbT) / 16.67, 3); // cap delta, normalize to 60fps
+        lastOrbT   = now;
+        updateOrbitalSystem(dt);
+    }
+    // Using rAF inside updateOrbitalSystem, so just kick it off:
+    updateOrbitalSystem(1);
+
+    // Hover to lock/unlock
+    nodeData.forEach(n => {
+        // Timer-based unlock: 220ms grace period so the cursor
+        // can cross from nav-btn to nav-preview without the card collapsing.
+        let unlockTimer = null;
+        n.el.addEventListener('mouseenter', () => {
+            clearTimeout(unlockTimer);
+            n.locked = true;
+            n.el.classList.add('locked');
+        });
+        n.el.addEventListener('mouseleave', () => {
+            unlockTimer = setTimeout(() => {
+                n.locked = false;
+                n.el.classList.remove('locked');
+            }, 220);
+        });
+    });
+
+    // Click preview buttons
+    document.querySelectorAll('.np-btn').forEach(btn => {
+        btn.addEventListener('click', () => navigateTo(btn.dataset.target));
+    });
+
+    /* ──────────────────────────────────────────────────────────
+       NAVIGATION: STATE TRANSITIONS + WARP
+    ────────────────────────────────────────────────────────── */
+    function navigateTo(target) {
+        if (isWarping || appState === target) return;
+        isWarping = true;
+        $('a-state').textContent = `STATE: WARP // DESTINATION: ${target.toUpperCase()}`;
+
+        playWarp('out', () => {
+            $('scene-hero').classList.add('exit');
+            const scene = $('scene-' + target);
+            scene.classList.add('active');
+            appState = target;
+            // Trigger progress bars with a slight delay
+            setTimeout(() => animateProgressBars(scene), 180);
+            isWarping = false;
+            $('a-state').textContent = `STATE: ${target.toUpperCase()} // ENGAGED`;
+        });
+    }
+
+    function navigateBack() {
+        if (isWarping) return;
+        isWarping = true;
+        $('a-state').textContent = 'STATE: EJECTING // RETURN TO COMMAND';
+
+        playWarp('in', () => {
+            document.querySelectorAll('.c-scene').forEach(s => s.classList.remove('active'));
+            $('scene-hero').classList.remove('exit');
+            // Reset all progress bars
+            document.querySelectorAll('.pf').forEach(b => b.style.width = '0');
+            appState  = 'hero';
+            isWarping = false;
+            $('a-state').textContent = 'STATE: HERO // ORBITAL LOCK: NOMINAL';
+        });
+    }
+
+    // Wire up eject buttons
+    ['missions','fleet','tech'].forEach(id => {
+        $('back-' + id).addEventListener('click', navigateBack);
+    });
+
+    function animateProgressBars(scope) {
+        scope.querySelectorAll('.pf').forEach(bar => {
+            bar.style.width = bar.dataset.w;
+        });
+    }
+
+    /* ──────────────────────────────────────────────────────────
+       WARP TUNNEL TRANSITION
+    ────────────────────────────────────────────────────────── */
+    const warpCv  = $('c-warp');
+    const warpCtx = warpCv.getContext('2d');
+    warpCv.width  = W();
+    warpCv.height = H();
+
+    function playWarp(direction, onComplete) {
+        warpCv.classList.add('active');
+
+        const cx = W() / 2, cy = H() / 2;
+        const maxR  = Math.hypot(cx, cy) * 1.6;
+        const FRAMES = direction === 'out' ? 55 : 40;
+        const colors = [
+            [0, 240, 255],    // cyan
+            [180, 120, 255],  // purple
+            [255, 0, 85],     // red
+        ];
+
+        let frame = 0;
+        function tick() {
+            frame++;
+            const progress = EASE_OUT(frame / FRAMES);
+            warpCtx.clearRect(0, 0, W(), H());
+
+            // Dark overlay
+            const overlayAlpha = direction === 'out'
+                ? Math.min(progress * 1.4, 0.92)
+                : Math.min(progress * 1.4, 0.88);
+            warpCtx.fillStyle = `rgba(3,3,5,${overlayAlpha})`;
+            warpCtx.fillRect(0, 0, W(), H());
+
+            // Expanding rings
+            const ringCount = 14;
+            for (let i = 0; i < ringCount; i++) {
+                const phase    = direction === 'out'
+                    ? (progress + i / ringCount) % 1
+                    : 1 - (progress + i / ringCount) % 1;
+                const r        = phase * maxR;
+                const alpha    = (1 - phase) * 0.65;
+                const col      = colors[i % 3];
+                warpCtx.beginPath();
+                warpCtx.arc(cx, cy, r, 0, Math.PI * 2);
+                warpCtx.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${alpha})`;
+                warpCtx.lineWidth   = 1.2;
+                warpCtx.stroke();
+            }
+
+            // Radial speed lines
+            const lineCount = 28;
+            for (let i = 0; i < lineCount; i++) {
+                const angle = (i / lineCount) * Math.PI * 2;
+                const len   = progress * maxR * 0.8;
+                const alpha = progress * 0.35;
+                warpCtx.beginPath();
+                warpCtx.moveTo(cx, cy);
+                warpCtx.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len);
+                warpCtx.strokeStyle = `rgba(0,240,255,${alpha})`;
+                warpCtx.lineWidth   = 0.5;
+                warpCtx.stroke();
+            }
+
+            // Flash at apex
+            if (progress > 0.78) {
+                const flash = (progress - 0.78) / 0.22;
+                warpCtx.fillStyle = `rgba(0,240,255,${flash * 0.55})`;
+                warpCtx.fillRect(0, 0, W(), H());
+            }
+
+            if (frame < FRAMES) {
+                requestAnimationFrame(tick);
+            } else {
+                warpCtx.clearRect(0, 0, W(), H());
+                warpCv.classList.remove('active');
+                onComplete && onComplete();
+            }
+        }
+        requestAnimationFrame(tick);
+    }
+
+    /* ──────────────────────────────────────────────────────────
+       TECH SCENE: NEURAL RESONANCE GRID
+    ────────────────────────────────────────────────────────── */
+    const neuralCv  = $('c-neural');
+    const neuralCtx = neuralCv.getContext('2d');
+
+    const NEURAL_NODES = Array.from({ length: 38 }, () => ({
+        x:   Math.random() * 400,
+        y:   Math.random() * 280,
+        vx:  (Math.random() - 0.5) * 0.35,
+        vy:  (Math.random() - 0.5) * 0.35,
+        t:   Math.random() * Math.PI * 2,
+    }));
+
+    let techT = 0;
+    function drawNeural() {
+        if (appState !== 'tech') { requestAnimationFrame(drawNeural); return; }
+
+        techT += 0.018;
+        const w = neuralCv.width || 400, h = neuralCv.height || 280;
+
+        // Fade trail
+        neuralCtx.fillStyle = 'rgba(3,3,5,0.18)';
+        neuralCtx.fillRect(0, 0, w, h);
+
+        NEURAL_NODES.forEach(n => {
+            n.x += n.vx; n.y += n.vy; n.t += 0.022;
+            if (n.x < 0 || n.x > w) n.vx *= -1;
+            if (n.y < 0 || n.y > h) n.vy *= -1;
+        });
+
+        // Edges
+        for (let i = 0; i < NEURAL_NODES.length; i++) {
+            for (let j = i + 1; j < NEURAL_NODES.length; j++) {
+                const a = NEURAL_NODES[i], b = NEURAL_NODES[j];
+                const dx   = a.x - b.x, dy = a.y - b.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 90) {
+                    const alpha = (1 - dist / 90) * 0.38;
+                    neuralCtx.beginPath();
+                    neuralCtx.moveTo(a.x, a.y);
+                    neuralCtx.lineTo(b.x, b.y);
+                    neuralCtx.strokeStyle = `rgba(180,120,255,${alpha})`;
+                    neuralCtx.lineWidth   = 0.6;
+                    neuralCtx.stroke();
+
+                    // Occasional data pulse
+                    if (Math.random() < 0.002) {
+                        const px = a.x + (b.x - a.x) * (techT % 1);
+                        const py = a.y + (b.y - a.y) * (techT % 1);
+                        neuralCtx.beginPath();
+                        neuralCtx.arc(px, py, 1.5, 0, Math.PI*2);
+                        neuralCtx.fillStyle = 'rgba(0,240,255,0.9)';
+                        neuralCtx.fill();
+                    }
+                }
+            }
+        }
+
+        // Nodes
+        NEURAL_NODES.forEach(n => {
+            const pulse = (Math.sin(n.t) + 1) / 2;
+            const r     = 1.8 + pulse * 2.2;
+            const alpha = 0.4 + pulse * 0.6;
+            neuralCtx.beginPath();
+            neuralCtx.arc(n.x, n.y, r, 0, Math.PI * 2);
+            neuralCtx.fillStyle = `rgba(0,240,255,${alpha})`;
+            neuralCtx.fill();
+        });
+
+        requestAnimationFrame(drawNeural);
+    }
+    drawNeural();
+
+    /* ──────────────────────────────────────────────────────────
+       AMBIENT COORDINATE GLITCH
+    ────────────────────────────────────────────────────────── */
+    const raEl = $('a-ra'), decEl = $('a-dec');
+    const BASE_RA  = '14h 29m 43.0s';
+    const BASE_DEC = '−62° 40′ 46″';
+    const CHARS = '0123456789ABCDEF+-';
+
+    setInterval(() => {
+        if (Math.random() > 0.82) {
+            const scramble = s => s.split('').map(c =>
+                Math.random() > 0.75 ? CHARS[Math.floor(Math.random() * CHARS.length)] : c
+            ).join('');
+            raEl.textContent  = scramble(BASE_RA);
+            decEl.textContent = scramble(BASE_DEC);
+            setTimeout(() => {
+                raEl.textContent  = BASE_RA;
+                decEl.textContent = BASE_DEC;
+            }, 95);
+        }
+    }, 900);
+
+    /* ──────────────────────────────────────────────────────────
+       INITIAL SETUP: Make orbital-wrap fill and position nodes
+    ────────────────────────────────────────────────────────── */
+    const orbWrap = $('orbital-wrap');
+    orbWrap.style.cssText = 'position:absolute;inset:0;pointer-events:none;';
+
+    // Position nodes initially before the first orbital frame
+    nodeData.forEach(n => {
+        n.el.style.position = 'absolute';
+        n.el.style.left = (W()/2 + Math.cos(n.angle) * n.radius) + 'px';
+        n.el.style.top  = (H()/2 + Math.sin(n.angle) * n.radius) + 'px';
+        n.el.style.pointerEvents = 'auto';
+    });
+
+    </script>
+</body>
+</html>
